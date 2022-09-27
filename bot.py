@@ -52,20 +52,28 @@ async def job_posting(message: types.Message, state: FSMContext):
 # Vacancy
 @dp.message_handler(state=Vacancy.company_name)
 async def set_company_name(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['company_name'] = message.text
+    if len(message.text) > config.COMPANY_NAME_CHARACTERS:
+        await message.answer(f'Названия компании не должно превышать {config.COMPANY_NAME_CHARACTERS} символов')
+        await Vacancy.company_name.set()
+    else:
+        async with state.proxy() as data:
+            data['company_name'] = message.text
 
-    await Vacancy.next()
-    await message.answer("Введите должность кандидата")
+        await Vacancy.next()
+        await message.answer("Введите должность кандидата")
 
 
 @dp.message_handler(state=Vacancy.job_title)
 async def set_job_title_vacancy(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['job_title'] = message.text
+    if len(message.text) > config.JOB_TITLE_CHARACTERS:
+        await message.answer(f'Должность кандидата не должно превышать {config.JOB_TITLE_CHARACTERS} символов')
+        await Vacancy.job_title.set()
+    else:
+        async with state.proxy() as data:
+            data['job_title'] = message.text
 
-    await Vacancy.next()
-    await message.answer("Укажите тип работы", reply_markup=type_work_markup)
+        await Vacancy.next()
+        await message.answer("Укажите тип работы", reply_markup=type_work_markup)
 
 
 @dp.message_handler(lambda message: message.text not in ["Работа в офисе", "Удаленно", "Проект(контракт)"],
@@ -113,11 +121,15 @@ async def set_term(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Vacancy.salary)
 async def set_salary(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['salary'] = message.text
+    if len(message.text) > config.SALARY_CHARACTERS:
+        await message.answer(f'Заработная плата не должно превышать {config.SALARY_CHARACTERS} символов.')
+        await Vacancy.salary.set()
+    else:
+        async with state.proxy() as data:
+            data['salary'] = message.text
 
-    await Vacancy.next()
-    await message.answer("Введите контакты", reply_markup=contact_markup)
+        await Vacancy.next()
+        await message.answer("Введите контакты", reply_markup=contact_markup)
 
 
 async def create_hashtags(fields: []) -> str:
@@ -133,7 +145,7 @@ async def send_vacancy(
         data: FSMContextProxy,
         reply_markup: types.InlineKeyboardMarkup
 ):
-    hashtags = create_hashtags([i for i in data if i in config.VACANCY_HASHTAGS])
+    hashtags = await create_hashtags([i for i in data if i in config.VACANCY_HASHTAGS])
 
     await bot.send_message(
         chat_id,
@@ -157,7 +169,7 @@ async def send_service(
         data: FSMContextProxy,
         reply_markup: types.InlineKeyboardMarkup
 ):
-    hashtags = create_hashtags([i for i in data if i in config.SERVICE_HASHTAGS])
+    hashtags = await create_hashtags([i for i in data if i in config.SERVICE_HASHTAGS])
 
     await bot.send_message(
         chat_id,
@@ -178,18 +190,25 @@ async def send_service(
 
 
 async def set_contact(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        if message.text:
-            data['contact'] = message.text
-        else:
-            data['contact'] = message.contact.phone_number
+    if message.contact is None and len(message.text) > config.CONTACT_CHARACTERS:
+        await message.answer(f'Контакты не должны превышать {config.CONTACT_CHARACTERS} символов.')
+        if state == Vacancy.contact.state:
+            await Vacancy.contact.set()
+        elif state == Service.contact.state:
+            await Service.contact.set()
+    else:
+        async with state.proxy() as data:
+            if message.text:
+                data['contact'] = message.text
+            else:
+                data['contact'] = message.contact.phone_number
 
-        if data.state == Vacancy.contact.state:
-            await send_vacancy(message.chat.id, data, inline_confirmation_vacancy)
-            await Vacancy.next()
-        elif data.state == Service.contact.state:
-            await send_service(message.chat.id, data, inline_confirmation_service)
-            await Service.next()
+            if data.state == Vacancy.contact.state:
+                await send_vacancy(message.chat.id, data, inline_confirmation_vacancy)
+                await Vacancy.next()
+            elif data.state == Service.contact.state:
+                await send_service(message.chat.id, data, inline_confirmation_service)
+                await Service.next()
 
 
 @dp.message_handler(content_types=types.ContentType.CONTACT, state=[Service.contact, Vacancy.contact])
@@ -219,9 +238,9 @@ async def confirmation(call: types.CallbackQuery, state: FSMContext):
         await call.message.answer('Что-то пошло не так', reply_markup=select_button)
 
     if call.data == 'cancel_vacancy':
-        await call.message.answer('Вакансия удалена!', reply_markup=types.ReplyKeyboardRemove())
+        await call.message.answer('Вакансия удалена!', reply_markup=select_button)
     elif call.data == 'cancel_service':
-        await call.message.answer('Услуга удалена!', reply_markup=types.ReplyKeyboardRemove())
+        await call.message.answer('Услуга удалена!', reply_markup=select_button)
 
     await state.finish()
 
@@ -229,13 +248,17 @@ async def confirmation(call: types.CallbackQuery, state: FSMContext):
 # Employee
 @dp.message_handler(state=Service.job_title)
 async def set_job_title_employee(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['job_title'] = message.text
+    if len(message.text) > config.JOB_TITLE_CHARACTERS:
+        await message.answer(f'Должность не должно превышать {config.JOB_TITLE_CHARACTERS} символов. ')
+        await Service.job_title.set()
+    else:
+        async with state.proxy() as data:
+            data['job_title'] = message.text
 
-    type_work_markup.add('Не важно')
+        type_work_markup.add('Не важно')
 
-    await Service.next()
-    await message.answer("Укажите тип работы", reply_markup=type_work_markup)
+        await Service.next()
+        await message.answer("Укажите тип работы", reply_markup=type_work_markup)
 
 
 @dp.message_handler(lambda message: message.text not in ["Работа в офисе", "Удаленно", "Проект(контракт)", "Не важно"],
@@ -269,20 +292,28 @@ async def set_term(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Service.portfolio)
 async def set_services_employee(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['portfolio'] = message.text
+    if len(message.text) > config.PORTFOLIO_CHARACTERS:
+        await message.answer(f'Длинна порфолио не должно превышать {config.PORTFOLIO_CHARACTERS} символов. ')
+        await Service.portfolio.set()
+    else:
+        async with state.proxy() as data:
+            data['portfolio'] = message.text
 
-    await Service.next()
-    await message.answer("Введите заработную плату ваших услуг", reply_markup=salary_markup)
+        await Service.next()
+        await message.answer("Введите заработную плату ваших услуг", reply_markup=salary_markup)
 
 
 @dp.message_handler(state=Service.service_cost)
 async def set_services_employee(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data['service_cost'] = message.text
+    if len(message.text) > config.SALARY_CHARACTERS:
+        await message.answer(f'Данное сообщение не должно превышать {config.SALARY_CHARACTERS} символов. ')
+        await Service.service_cost.set()
+    else:
+        async with state.proxy() as data:
+            data['service_cost'] = message.text
 
-    await Service.next()
-    await message.answer("Введите контакты", reply_markup=contact_markup)
+        await Service.next()
+        await message.answer("Введите контакты", reply_markup=contact_markup)
 
 
 # run long polling
