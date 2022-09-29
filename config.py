@@ -1,4 +1,4 @@
-TOKEN = '5732920823:AAEBS3K7iJIHp8IR5c5r1xFkGs0xV1893Iw'
+TOKEN = 'your-token'
 VACANCY_GROUP_ID = "your-vacancy-group-id"
 SERVICE_GROUP_ID = "your-vacancy-service-id"
 

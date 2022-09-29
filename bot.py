@@ -135,8 +135,7 @@ async def set_salary(message: types.Message, state: FSMContext):
 async def create_hashtags(fields: []) -> str:
 
     # delete all symbols
-    fields = [re.sub(r'[^a-zA-Z]', '', field) for field in fields]
-
+    fields = ["".join(character for character in field if character.isalpha()) for field in fields]
     return ' '.join(f"#{field.replace(' ', '')}" for field in fields)
 
 
@@ -145,7 +144,7 @@ async def send_vacancy(
         data: FSMContextProxy,
         reply_markup: types.InlineKeyboardMarkup
 ):
-    hashtags = await create_hashtags([i for i in data if i in config.VACANCY_HASHTAGS])
+    hashtags = await create_hashtags([data[i] for i in data if i in config.VACANCY_HASHTAGS])
 
     await bot.send_message(
         chat_id,
@@ -169,7 +168,7 @@ async def send_service(
         data: FSMContextProxy,
         reply_markup: types.InlineKeyboardMarkup
 ):
-    hashtags = await create_hashtags([i for i in data if i in config.SERVICE_HASHTAGS])
+    hashtags = await create_hashtags([data[i] for i in data if i in config.SERVICE_HASHTAGS])
 
     await bot.send_message(
         chat_id,
